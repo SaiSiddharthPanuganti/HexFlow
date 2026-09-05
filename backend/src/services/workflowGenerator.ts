@@ -98,22 +98,34 @@ export async function generateWorkflow(brief: string): Promise<Workflow> {
     `Create a production workflow for the following creative brief:\n\n${brief}`;
 
   let response;
-  try {
-    response = await ai.models.generateContent({
-      model: config.geminiModel,
-      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-      config: {
-        systemInstruction: SYSTEM_PROMPT,
-        responseMimeType: 'application/json',
-        maxOutputTokens: 8192,
-        temperature: 0.8,
-      },
-    });
-  } catch (error) {
-    console.error('[workflowGenerator] AI provider request failed:', error);
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      response = await ai.models.generateContent({
+        model: config.geminiModel,
+        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+        config: {
+          systemInstruction: SYSTEM_PROMPT,
+          responseMimeType: 'application/json',
+          maxOutputTokens: 8192,
+          temperature: 0.8,
+        },
+      });
+      break;
+    } catch (error) {
+      lastError = error;
+      console.error(`[workflowGenerator] AI provider request failed (attempt ${attempt + 1}):`, error);
+      if (attempt === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      }
+    }
+  }
+
+  if (!response) {
+    console.error('[workflowGenerator] AI provider request failed after retry:', lastError);
     throw new WorkflowGenerationError(
       502,
-      'AI provider request failed. Please try again.',
+      'The AI provider is temporarily unavailable. Please try again in a moment.',
     );
   }
 
