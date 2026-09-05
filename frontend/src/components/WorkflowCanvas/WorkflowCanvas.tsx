@@ -90,16 +90,31 @@ export default function WorkflowCanvas({
       return;
     }
 
-    setNodes((nds) =>
-      nds.map((n) => {
-        const wfNode = workflow.nodes.find((w) => w.id === n.id);
-        if (!wfNode) return n;
-        if (wfNode.title !== n.data.title || wfNode.content !== n.data.content) {
-          return { ...n, data: { ...n.data, title: wfNode.title, content: wfNode.content } };
+    setNodes((nds) => {
+      const currentNodes = new Map(nds.map((node) => [node.id, node]));
+      return workflow.nodes.map((wfNode) => {
+        const existing = currentNodes.get(wfNode.id);
+        if (!existing) {
+          return {
+            id: wfNode.id,
+            type: 'workflowNode',
+            position: wfNode.position,
+            data: {
+              type: wfNode.type,
+              title: wfNode.title,
+              content: wfNode.content,
+            },
+            style: { width: 320, height: 140 },
+          };
         }
-        return n;
-      }),
-    );
+        return {
+          ...existing,
+          position: wfNode.position,
+          data: { ...existing.data, type: wfNode.type, title: wfNode.title, content: wfNode.content },
+        };
+      });
+    });
+    setEdges(workflowToReactFlow(workflow).edges);
   }, [workflow, setNodes, setEdges]);
 
   // Clear the visual selection when the inspector is closed externally.

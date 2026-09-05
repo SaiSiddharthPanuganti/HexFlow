@@ -243,7 +243,7 @@ export async function editWorkflowHandler(req: Request, res: Response): Promise<
     // Return successful response
     const response: EditWorkflowResponse = {
       summary: result.summary,
-      nodes: result.nodes,
+      workflow: result.workflow,
     };
     res.status(200).json(response);
   } catch (error) {

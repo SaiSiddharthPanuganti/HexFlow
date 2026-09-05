@@ -50,7 +50,7 @@ export interface EditWorkflowRequest {
  */
 export interface EditWorkflowResponse {
   summary: string;
-  nodes: WorkflowNode[];
+  workflow: Workflow;
 }
 
 /**

@@ -4,7 +4,8 @@
  * Malformed data is rejected here, never forwarded to the frontend.
  */
 
-import type { NodeType } from '../types/workflow.types';
+import type { NodeType, Workflow } from '../types/workflow.types';
+import { isValidNodeType } from '../types/workflow.types';
 import { WorkflowGenerationError } from '../utils/workflowErrors';
 
 export interface AINodeContent {
@@ -196,7 +197,16 @@ export interface AIEditedNode {
 
 export interface AIEditResult {
   summary: string;
-  nodes: Record<string, AIEditedNode>;
+  updates: Record<string, AIEditedNode>;
+  removals: string[];
+  additions: AIAddedNode[];
+}
+
+export interface AIAddedNode {
+  type: NodeType;
+  title: string;
+  content: string;
+  after: string;
 }
 
 /**
@@ -206,7 +216,7 @@ export interface AIEditResult {
  */
 export function parseEditedWorkflow(
   raw: string,
-  validNodeIds: string[],
+  workflow: Workflow,
 ): AIEditResult {
   const parsed = tryParseJson(raw);
   if (parsed === undefined) {
@@ -227,17 +237,17 @@ export function parseEditedWorkflow(
 
   const obj = parsed as Record<string, unknown>;
   const issues: string[] = [];
-  const validIdSet = new Set(validNodeIds);
+  const validIdSet = new Set(workflow.nodes.map((node) => node.id));
 
   if (typeof obj.summary !== 'string' || obj.summary.trim().length === 0) {
     issues.push('"summary" must be a non-empty string');
   }
 
-  const nodes = obj.nodes;
-  if (!nodes || typeof nodes !== 'object' || Array.isArray(nodes)) {
-    issues.push('"nodes" must be an object keyed by existing node ids');
+  const updates = obj.updates;
+  if (!updates || typeof updates !== 'object' || Array.isArray(updates)) {
+    issues.push('"updates" must be an object keyed by existing node ids');
   } else {
-    const nodeMap = nodes as Record<string, unknown>;
+    const nodeMap = updates as Record<string, unknown>;
     for (const [id, node] of Object.entries(nodeMap)) {
       if (!validIdSet.has(id)) {
         issues.push(`"${id}" is not an existing node id`);
@@ -257,6 +267,44 @@ export function parseEditedWorkflow(
     }
   }
 
+  const removals = obj.removals;
+  if (!Array.isArray(removals)) {
+    issues.push('"removals" must be an array of existing node ids');
+  } else {
+    for (const id of removals) {
+      if (typeof id !== 'string' || !validIdSet.has(id)) {
+        issues.push(`removal "${String(id)}" is not an existing node id`);
+      }
+    }
+  }
+
+  const additions = obj.additions;
+  if (!Array.isArray(additions)) {
+    issues.push('"additions" must be an array of new workflow steps');
+  } else {
+    for (const addition of additions) {
+      if (!addition || typeof addition !== 'object' || Array.isArray(addition)) {
+        issues.push('each addition must be an object');
+        continue;
+      }
+      const node = addition as Record<string, unknown>;
+      if (typeof node.type !== 'string' || !isValidNodeType(node.type)) {
+        issues.push('each addition must use a valid node type');
+      }
+      if (typeof node.title !== 'string' || node.title.trim().length === 0) {
+        issues.push('each addition must have a non-empty "title"');
+      }
+      if (typeof node.content !== 'string' || node.content.trim().length === 0) {
+        issues.push('each addition must have non-empty "content"');
+      }
+      if (typeof node.after !== 'string' || !validIdSet.has(node.after)) {
+        issues.push('each addition must reference an existing node id in "after"');
+      } else if (Array.isArray(removals) && removals.includes(node.after)) {
+        issues.push('an addition cannot be inserted after a node being removed');
+      }
+    }
+  }
+
   if (issues.length > 0) {
     throw new WorkflowGenerationError(
       502,
@@ -265,7 +313,7 @@ export function parseEditedWorkflow(
   }
 
   const editedNodes: Record<string, AIEditedNode> = {};
-  for (const [id, node] of Object.entries(nodes as Record<string, AIEditedNode>)) {
+  for (const [id, node] of Object.entries(updates as Record<string, AIEditedNode>)) {
     editedNodes[id] = {
       title: node.title.trim(),
       content: node.content.trim(),
@@ -274,6 +322,13 @@ export function parseEditedWorkflow(
 
   return {
     summary: (obj.summary as string).trim(),
-    nodes: editedNodes,
+    updates: editedNodes,
+    removals: (removals as string[]).filter((id, index, ids) => ids.indexOf(id) === index),
+    additions: (additions as Array<Record<string, unknown>>).map((node) => ({
+      type: node.type as NodeType,
+      title: (node.title as string).trim(),
+      content: (node.content as string).trim(),
+      after: node.after as string,
+    })),
   };
 }

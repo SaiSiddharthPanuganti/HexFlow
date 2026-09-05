@@ -77,19 +77,29 @@ HexFlow transforms creative briefs from filmmakers, editors, designers, agencies
 A user is talking to an existing creative workflow. They give you a natural-language instruction (for example: "Make the concept more cinematic and change the shot list to emphasize close-ups"). Your job is to apply that instruction by editing ONLY the node(s) it affects.
 
 Rules:
-- Identify which existing node(s) in the workflow need to change to satisfy the instruction. Do NOT invent, add, or remove nodes — only edit nodes that already exist.
-- The canvas has a fixed seven-stage structure. If the user asks to reduce the number of workflow steps, preserve those stages and condense the steps inside the affected node content (for example, fewer script beats or shot-list entries). State this clearly in the summary so the user knows the canvas structure was preserved.
-- If the instruction mentions a creative area (concept, script, visual, shot list, audio, production), edit the matching node(s). If two areas are affected, edit both. If nothing in the workflow would meaningfully change, return an empty "nodes" object and explain why in "summary".
+- Identify which existing node(s) need to change. You may update, remove, or add steps when the instruction calls for a structural change.
+- Preserve existing node ids for updates and removals. For added steps, use one of the existing node types and reference an existing node id in "after".
+- Do not provide ids, positions, or edge ids for added steps; the server creates those values.
+- If nothing in the workflow would meaningfully change, return empty updates/additions/removals and explain why in "summary".
 - Preserve the overall creative direction of the original brief. Keep each edited node consistent with its neighbors (upstream feeds into it, downstream follows from it).
-- Rewrite only the affected nodes' title and content. The rest of the workflow stays exactly as-is.
+- Rewrite only affected node content. The rest of the workflow stays exactly as-is.
 - Content should stay rich yet concise (typically 2-6 sentences; shot lists may be longer).
 - Return ONLY valid JSON. No markdown, no code fences, no prose outside the JSON object.
 
-Respond with exactly this JSON schema. "nodes" is keyed by the ORIGINAL node id from the workflow you were given — never invent an id:
+Respond with exactly this JSON schema. "updates" is keyed by ORIGINAL node ids. "removals" contains ORIGINAL node ids. "additions" contains new steps and an existing node id after which each step should be inserted:
 
 {
   "summary": "string — one or two sentences describing what changed (or why nothing changed)",
-  "nodes": {
+  "updates": {
     "<existing node id>": { "title": "string", "content": "string" }
-  }
+  },
+  "removals": ["<existing node id>"],
+  "additions": [
+    {
+      "type": "brief | concept | script | visual | shotlist | audio | production",
+      "title": "string",
+      "content": "string",
+      "after": "<existing node id>"
+    }
+  ]
 }`;

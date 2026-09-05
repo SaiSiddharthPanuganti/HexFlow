@@ -176,7 +176,7 @@ function App() {
   )
 
   const handleWorkflowEdit = useCallback(
-    async (instruction: string): Promise<{ summary: string; nodeIds: string[]; nodeLabels: string[] }> => {
+    async (instruction: string): Promise<{ summary: string; nodeLabels: string[] }> => {
       if (!workflow) {
         throw new Error('No workflow is loaded')
       }
@@ -195,21 +195,28 @@ function App() {
         throw new Error(data.message || 'Failed to edit workflow')
       }
 
-      const updatedNodes: WorkflowNode[] = data.nodes ?? []
+      const nextWorkflow: Workflow = data.workflow
+      const previousNodes = new Map(workflow.nodes.map((node) => [node.id, node]))
+      const nextNodes = new Map(nextWorkflow.nodes.map((node) => [node.id, node]))
+      const nodeLabels: string[] = []
 
-      // Replace only the nodes the agent changed; everything else (including
-      // the user's saved edits, edges, and positions) is preserved.
-      if (workflow) {
-        commitWorkflow({
-          ...workflow,
-          nodes: workflow.nodes.map((n) => updatedNodes.find((u) => u.id === n.id) ?? n),
-        })
-      }
+      nextWorkflow.nodes.forEach((node) => {
+        const previous = previousNodes.get(node.id)
+        if (!previous) {
+          nodeLabels.push(`Added ${getNodeLabel(node.type)}`)
+        } else if (previous.title !== node.title || previous.content !== node.content) {
+          nodeLabels.push(`Updated ${getNodeLabel(node.type)}`)
+        }
+      })
+      workflow.nodes.forEach((node) => {
+        if (!nextNodes.has(node.id)) nodeLabels.push(`Removed ${getNodeLabel(node.type)}`)
+      })
+
+      commitWorkflow(nextWorkflow)
 
       return {
         summary: data.summary,
-        nodeIds: updatedNodes.map((n) => n.id),
-        nodeLabels: updatedNodes.map((n) => getNodeLabel(n.type)),
+        nodeLabels,
       }
     },
     [commitWorkflow, workflow, brief],

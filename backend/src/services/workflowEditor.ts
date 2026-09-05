@@ -5,7 +5,8 @@
  * user edits) are never touched.
  */
 
-import type { Workflow, WorkflowNode } from '../types/workflow.types';
+import type { Workflow, WorkflowEdge, WorkflowNode } from '../types/workflow.types';
+import { generateEdgeId, generateNodeId } from '../utils/idGenerator';
 import { config } from '../config';
 import { getAIClient } from './aiClient';
 import { WORKFLOW_EDIT_PROMPT } from './systemPrompt';
@@ -23,7 +24,7 @@ export interface EditWorkflowInput {
 
 export interface EditWorkflowResult {
   summary: string;
-  nodes: WorkflowNode[];
+  workflow: Workflow;
 }
 
 function formatNode(node: WorkflowNode): string {
@@ -46,8 +47,63 @@ function buildUserMessage(input: EditWorkflowInput): string {
       `\n`,
     `# Connections\n${edgeList || '(none)'}\n`,
     `# User Instruction\n${input.instruction}\n`,
-    `Apply the instruction by editing only the existing node(s) above. Return the summary and the updated node(s) keyed by their existing ids.`,
+    `Apply the instruction using updates, removals, and additions. Return the summary and the exact operation object requested by the system instructions.`,
   ].join('\n');
+}
+
+function applyStructuralEdits(workflow: Workflow, result: ReturnType<typeof parseEditedWorkflow>): Workflow {
+  const removedIds = new Set(result.removals);
+  let nodes = workflow.nodes
+    .filter((node) => !removedIds.has(node.id))
+    .map((node) => {
+      const update = result.updates[node.id];
+      return update ? { ...node, title: update.title, content: update.content } : node;
+    });
+
+  let edges = workflow.edges.filter(
+    (edge) => !removedIds.has(edge.source) && !removedIds.has(edge.target),
+  );
+
+  const addEdge = (source: string, target: string) => {
+    if (source === target || edges.some((edge) => edge.source === source && edge.target === target)) return;
+    edges.push({ id: generateEdgeId(), source, target });
+  };
+
+  for (const removedId of result.removals) {
+    const incoming = workflow.edges.filter((edge) => edge.target === removedId);
+    const outgoing = workflow.edges.filter((edge) => edge.source === removedId);
+    for (const incomingEdge of incoming) {
+      for (const outgoingEdge of outgoing) {
+        if (!removedIds.has(incomingEdge.source) && !removedIds.has(outgoingEdge.target)) {
+          addEdge(incomingEdge.source, outgoingEdge.target);
+        }
+      }
+    }
+  }
+
+  for (const addition of result.additions) {
+    const anchorIndex = nodes.findIndex((node) => node.id === addition.after);
+    if (anchorIndex === -1) continue;
+
+    const anchor = nodes[anchorIndex];
+    const newNode: WorkflowNode = {
+      id: generateNodeId(),
+      type: addition.type,
+      title: addition.title,
+      content: addition.content,
+      position: { x: anchor.position.x + 320, y: anchor.position.y + 120 },
+    };
+
+    const outgoingTargets = edges
+      .filter((edge) => edge.source === anchor.id)
+      .map((edge) => edge.target);
+    edges = edges.filter((edge) => edge.source !== anchor.id);
+    nodes.splice(anchorIndex + 1, 0, newNode);
+    addEdge(anchor.id, newNode.id);
+    for (const target of outgoingTargets) addEdge(newNode.id, target);
+  }
+
+  return { ...workflow, nodes, edges };
 }
 
 /**
@@ -85,26 +141,11 @@ export async function editWorkflow(
     throw new WorkflowGenerationError(502, 'AI returned an empty response');
   }
 
-  const validNodeIds = input.workflow.nodes.map((n) => n.id);
-  const parsed = parseEditedWorkflow(raw, validNodeIds);
-
-  const byId = new Map(input.workflow.nodes.map((n) => [n.id, n]));
-
-  // Keep workflow node order in the response.
-  const nodes: WorkflowNode[] = input.workflow.nodes.flatMap((original) => {
-    const edited = parsed.nodes[original.id];
-    if (!edited) return [];
-    return [
-      {
-        ...original,
-        title: edited.title,
-        content: edited.content,
-      },
-    ];
-  });
+  const parsed = parseEditedWorkflow(raw, input.workflow);
+  const workflow = applyStructuralEdits(input.workflow, parsed);
 
   return {
     summary: parsed.summary,
-    nodes,
+    workflow,
   };
 }

@@ -8,7 +8,6 @@ interface ChatMessage {
 
 interface EditResult {
   summary: string;
-  nodeIds: string[];
   nodeLabels: string[];
 }
 
@@ -28,7 +27,7 @@ export default function WorkflowChat({ onEdit }: WorkflowChatProps) {
   const [loading, setLoading] = useState(false);
 
   const formatAssistant = (result: EditResult): string => {
-    if (result.nodeIds.length === 0) {
+    if (result.nodeLabels.length === 0) {
       return `${result.summary}\n\nNo workflow stages changed.`;
     }
     return `${result.summary}\n\nUpdated stages: ${result.nodeLabels.join(', ')}.`;
