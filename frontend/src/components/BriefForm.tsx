@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Workflow } from '../types/workflow.types';
 import { apiUrl } from '../lib/api';
+import { WORKFLOW_TEMPLATES } from '../data/workflowTemplates';
 import './BriefForm.css';
 
 interface BriefFormProps {
@@ -82,6 +83,39 @@ export default function BriefForm({ onWorkflowGenerated }: BriefFormProps) {
             <p className="form-hint">Plain language is fine — HexFlow will structure it for you</p>
           </div>
         </div>
+
+        <section className="template-section" aria-labelledby="template-heading">
+          <div className="template-section-heading">
+            <div>
+              <p className="template-kicker">Start from a template</p>
+              <h2 id="template-heading" className="template-title">Choose a production starting point</h2>
+            </div>
+            <span className="template-hint">You can edit the brief before generating</span>
+          </div>
+          <div className="template-grid">
+            {WORKFLOW_TEMPLATES.map((template) => (
+              <article className="template-card" key={template.id}>
+                <div className="template-card-topline">
+                  <span className="template-category">{template.category}</span>
+                  <span className="template-arrow" aria-hidden="true">↗</span>
+                </div>
+                <h3 className="template-name">{template.name}</h3>
+                <p className="template-description">{template.description}</p>
+                <button
+                  type="button"
+                  className="template-button"
+                  onClick={() => {
+                    setBrief(template.brief);
+                    setError(null);
+                  }}
+                  disabled={isLoading}
+                >
+                  Use template
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
 
         <div className="examples">
           <span className="examples-label">Try:</span>
