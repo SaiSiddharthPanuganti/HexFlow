@@ -9,6 +9,7 @@ interface ChatMessage {
 interface EditResult {
   summary: string;
   nodeIds: string[];
+  nodeLabels: string[];
 }
 
 interface WorkflowChatProps {
@@ -28,10 +29,9 @@ export default function WorkflowChat({ onEdit }: WorkflowChatProps) {
 
   const formatAssistant = (result: EditResult): string => {
     if (result.nodeIds.length === 0) {
-      return result.summary;
+      return `${result.summary}\n\nNo workflow stages changed.`;
     }
-    const count = `${result.nodeIds.length} node${result.nodeIds.length === 1 ? '' : 's'}`;
-    return `${result.summary}\n\nUpdated ${count}.`;
+    return `${result.summary}\n\nUpdated stages: ${result.nodeLabels.join(', ')}.`;
   };
 
   const send = async () => {

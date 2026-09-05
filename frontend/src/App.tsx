@@ -6,6 +6,7 @@ import WorkflowCanvas from './components/WorkflowCanvas/WorkflowCanvas'
 import InspectorPanel from './components/InspectorPanel/InspectorPanel'
 import WorkflowChat from './components/WorkflowChat/WorkflowChat'
 import { apiUrl } from './lib/api'
+import { getNodeLabel } from './components/WorkflowCanvas/nodeStyles'
 import './App.css'
 
 function App() {
@@ -175,7 +176,7 @@ function App() {
   )
 
   const handleWorkflowEdit = useCallback(
-    async (instruction: string): Promise<{ summary: string; nodeIds: string[] }> => {
+    async (instruction: string): Promise<{ summary: string; nodeIds: string[]; nodeLabels: string[] }> => {
       if (!workflow) {
         throw new Error('No workflow is loaded')
       }
@@ -208,6 +209,7 @@ function App() {
       return {
         summary: data.summary,
         nodeIds: updatedNodes.map((n) => n.id),
+        nodeLabels: updatedNodes.map((n) => getNodeLabel(n.type)),
       }
     },
     [commitWorkflow, workflow, brief],
