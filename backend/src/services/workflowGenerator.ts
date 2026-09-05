@@ -97,11 +97,10 @@ export async function generateWorkflow(brief: string): Promise<Workflow> {
   const userPrompt =
     `Create a production workflow for the following creative brief:\n\n${brief}`;
 
-  let response;
   let lastError: unknown;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      response = await ai.models.generateContent({
+      const response = await ai.models.generateContent({
         model: config.geminiModel,
         contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
         config: {
@@ -111,30 +110,29 @@ export async function generateWorkflow(brief: string): Promise<Workflow> {
           temperature: 0.8,
         },
       });
-      break;
+
+      const raw = response.text?.trim();
+      if (!raw) {
+        throw new WorkflowGenerationError(502, 'AI returned an empty response');
+      }
+
+      return buildWorkflow(parseAIContent(raw));
     } catch (error) {
       lastError = error;
-      console.error(`[workflowGenerator] AI provider request failed (attempt ${attempt + 1}):`, error);
+      console.error(`[workflowGenerator] AI generation failed (attempt ${attempt + 1}):`, error);
       if (attempt === 0) {
         await new Promise((resolve) => setTimeout(resolve, 400));
       }
     }
   }
 
-  if (!response) {
-    console.error('[workflowGenerator] AI provider request failed after retry:', lastError);
-    throw new WorkflowGenerationError(
-      502,
-      'The AI provider is temporarily unavailable. Please try again in a moment.',
-    );
+  if (lastError instanceof WorkflowGenerationError) {
+    throw lastError;
   }
 
-  const raw = response.text?.trim();
-  if (!raw) {
-    throw new WorkflowGenerationError(502, 'AI returned an empty response');
-  }
-
-  const aiWorkflow = parseAIContent(raw);
-
-  return buildWorkflow(aiWorkflow);
+  console.error('[workflowGenerator] AI provider request failed after retry:', lastError);
+  throw new WorkflowGenerationError(
+    502,
+    'The AI provider is temporarily unavailable. Please try again in a moment.',
+  );
 }
