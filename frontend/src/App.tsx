@@ -4,6 +4,7 @@ import BriefForm from './components/BriefForm'
 import WorkflowCanvas from './components/WorkflowCanvas/WorkflowCanvas'
 import InspectorPanel from './components/InspectorPanel/InspectorPanel'
 import WorkflowChat from './components/WorkflowChat/WorkflowChat'
+import { apiUrl } from './lib/api'
 import './App.css'
 
 function App() {
@@ -143,7 +144,7 @@ function App() {
         workflow.edges.some((e) => e.source === nodeId && e.target === n.id),
       )
 
-      const response = await fetch('/api/workflow/regenerate', {
+      const response = await fetch(apiUrl('/api/workflow/regenerate'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -178,7 +179,7 @@ function App() {
         throw new Error('No workflow is loaded')
       }
 
-      const response = await fetch('/api/workflow/edit', {
+      const response = await fetch(apiUrl('/api/workflow/edit'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
