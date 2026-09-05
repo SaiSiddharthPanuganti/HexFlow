@@ -10,7 +10,7 @@
 ## Vercel frontend
 
 1. In Vercel, choose **Add New > Project** and import the same repository.
-2. Keep the repository root as the project root. `vercel.json` builds `frontend` and serves `frontend/dist`.
+2. Set **Root Directory** to `frontend`. The frontend-local `vercel.json` runs `npm ci`, builds the app, and serves `dist`.
 3. Add the environment variable `VITE_API_URL` with the Render service URL, for example `https://hexflow-api.onrender.com`.
 4. Deploy the project.
 5. Copy the Vercel URL into Render as `FRONTEND_URL`, then redeploy the Render service.
