@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Analytics } from '@vercel/analytics/react'
 import type { Workflow, WorkflowNode } from './types/workflow.types'
 import BriefForm from './components/BriefForm'
 import WorkflowCanvas from './components/WorkflowCanvas/WorkflowCanvas'
@@ -329,6 +330,7 @@ function App() {
           <p className="footer-text">HexFlow — AI Creative Workflow Builder</p>
         </div>
       </footer>
+      <Analytics />
     </div>
   )
 }
