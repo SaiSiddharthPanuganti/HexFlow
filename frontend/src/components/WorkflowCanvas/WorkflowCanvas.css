@@ -90,8 +90,44 @@
 }
 
 .workflow-flow {
+  position: relative;
   height: 640px;
   background-color: #0a0b13;
+}
+
+.canvas-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.canvas-empty strong {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.canvas-empty span {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.canvas-empty-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid rgba(124, 92, 255, 0.2);
+  border-top-color: var(--accent-2);
+  border-radius: 50%;
+  animation: canvasSpin 0.9s linear infinite;
+}
+
+@keyframes canvasSpin {
+  to { transform: rotate(360deg); }
 }
 
 .react-flow__controls {
@@ -138,5 +174,10 @@
 
   .workflow-flow {
     height: 440px;
+  }
+
+  .workflow-title {
+    max-width: 100%;
+    overflow-wrap: anywhere;
   }
 }

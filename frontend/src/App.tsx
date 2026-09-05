@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { Workflow, WorkflowNode } from './types/workflow.types'
 import BriefForm from './components/BriefForm'
 import WorkflowCanvas from './components/WorkflowCanvas/WorkflowCanvas'
@@ -7,28 +7,123 @@ import WorkflowChat from './components/WorkflowChat/WorkflowChat'
 import './App.css'
 
 function App() {
-  const [workflow, setWorkflow] = useState<Workflow | null>(null)
-  const [brief, setBrief] = useState('')
+  const [workflow, setWorkflow] = useState<Workflow | null>(() => {
+    try {
+      const saved = localStorage.getItem('hexflow-workflow')
+      return saved ? (JSON.parse(saved) as Workflow) : null
+    } catch {
+      return null
+    }
+  })
+  const [brief, setBrief] = useState(() => localStorage.getItem('hexflow-brief') ?? '')
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [past, setPast] = useState<Workflow[]>([])
+  const [future, setFuture] = useState<Workflow[]>([])
+  const [savedAt, setSavedAt] = useState<number | null>(() => {
+    const saved = localStorage.getItem('hexflow-saved-at')
+    return saved ? Number(saved) : null
+  })
+  const [notice, setNotice] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!notice) return
+    const timeout = window.setTimeout(() => setNotice(null), 3200)
+    return () => window.clearTimeout(timeout)
+  }, [notice])
+
+  const commitWorkflow = useCallback((next: Workflow | null) => {
+    setWorkflow((current) => {
+      if (current && next && JSON.stringify(current) !== JSON.stringify(next)) {
+        setPast((history) => [...history, current].slice(-30))
+        setFuture([])
+      }
+      return next
+    })
+  }, [])
 
   const handleWorkflowGenerated = (wf: Workflow, sourceBrief: string) => {
     setWorkflow(wf)
     setBrief(sourceBrief)
     setSelectedNodeId(null)
+    setPast([])
+    setFuture([])
+    setSavedAt(null)
   }
 
   const handleNodeSave = (nodeId: string, title: string, content: string) => {
-    setWorkflow((prev) =>
-      prev
-        ? {
-            ...prev,
-            nodes: prev.nodes.map((n) =>
-              n.id === nodeId ? { ...n, title, content } : n,
-            ),
-          }
-        : prev,
-    )
+    if (!workflow) return
+    commitWorkflow({
+      ...workflow,
+      nodes: workflow.nodes.map((n) =>
+        n.id === nodeId ? { ...n, title, content } : n,
+      ),
+    })
     setSelectedNodeId(null)
+  }
+
+  const handleNodePositionChange = useCallback((nodeId: string, position: { x: number; y: number }) => {
+    if (!workflow) return
+    const node = workflow.nodes.find((item) => item.id === nodeId)
+    if (!node || (node.position.x === position.x && node.position.y === position.y)) return
+    commitWorkflow({
+      ...workflow,
+      nodes: workflow.nodes.map((item) => item.id === nodeId ? { ...item, position } : item),
+    })
+  }, [commitWorkflow, workflow])
+
+  const undo = () => {
+    const previous = past[past.length - 1]
+    if (!workflow || !previous) return
+    setPast((history) => history.slice(0, -1))
+    setFuture((history) => [workflow, ...history].slice(0, 30))
+    setWorkflow(previous)
+    setSelectedNodeId(null)
+  }
+
+  const redo = () => {
+    const next = future[0]
+    if (!workflow || !next) return
+    setFuture((history) => history.slice(1))
+    setPast((history) => [...history, workflow].slice(-30))
+    setWorkflow(next)
+    setSelectedNodeId(null)
+  }
+
+  const saveWorkflow = () => {
+    if (!workflow) return
+    localStorage.setItem('hexflow-workflow', JSON.stringify(workflow))
+    localStorage.setItem('hexflow-brief', brief)
+    const timestamp = Date.now()
+    localStorage.setItem('hexflow-saved-at', String(timestamp))
+    setSavedAt(timestamp)
+    setNotice('Workflow saved to this browser')
+  }
+
+  const exportWorkflow = () => {
+    if (!workflow) return
+    const blob = new Blob([JSON.stringify(workflow, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${workflow.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'hexflow-workflow'}.json`
+    link.click()
+    URL.revokeObjectURL(url)
+    setNotice('Workflow exported')
+  }
+
+  const shareWorkflow = async () => {
+    if (!workflow) return
+    const shareData = { title: workflow.title, text: workflow.description, url: window.location.href }
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData)
+      } else {
+        await navigator.clipboard.writeText(window.location.href)
+        setNotice('Workspace link copied')
+      }
+    } catch {
+      // Share dialogs can be dismissed without an error state in the UI.
+    }
   }
 
   const handleNodeRegenerate = useCallback(
@@ -65,20 +160,16 @@ function App() {
       const updatedNode: WorkflowNode = data.node
 
       // Replace only this node; every other node (including user edits) and all edges are preserved.
-      setWorkflow((prev) =>
-        prev
-          ? {
-              ...prev,
-              nodes: prev.nodes.map((n) =>
-                n.id === updatedNode.id ? updatedNode : n,
-              ),
-            }
-          : prev,
-      )
+      if (workflow) {
+        commitWorkflow({
+          ...workflow,
+          nodes: workflow.nodes.map((n) => n.id === updatedNode.id ? updatedNode : n),
+        })
+      }
 
       return updatedNode
     },
-    [workflow, brief],
+    [commitWorkflow, workflow, brief],
   )
 
   const handleWorkflowEdit = useCallback(
@@ -105,24 +196,19 @@ function App() {
 
       // Replace only the nodes the agent changed; everything else (including
       // the user's saved edits, edges, and positions) is preserved.
-      setWorkflow((prev) =>
-        prev
-          ? {
-              ...prev,
-              nodes: prev.nodes.map((n) => {
-                const updated = updatedNodes.find((u) => u.id === n.id)
-                return updated ? updated : n
-              }),
-            }
-          : prev,
-      )
+      if (workflow) {
+        commitWorkflow({
+          ...workflow,
+          nodes: workflow.nodes.map((n) => updatedNodes.find((u) => u.id === n.id) ?? n),
+        })
+      }
 
       return {
         summary: data.summary,
         nodeIds: updatedNodes.map((n) => n.id),
       }
     },
-    [workflow, brief],
+    [commitWorkflow, workflow, brief],
   )
 
   const selectedNode = workflow?.nodes.find((n) => n.id === selectedNodeId) ?? null
@@ -160,6 +246,29 @@ function App() {
           </div>
 
           <div className="header-actions">
+            {workflow && (
+              <>
+                <div className="history-actions" aria-label="Workflow history">
+                  <button type="button" className="icon-button" onClick={undo} disabled={!past.length} aria-label="Undo last change" title="Undo">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-1" /></svg>
+                  </button>
+                  <button type="button" className="icon-button" onClick={redo} disabled={!future.length} aria-label="Redo last change" title="Redo">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5" /><path d="M20 9H10a6 6 0 0 0 0 12h1" /></svg>
+                  </button>
+                </div>
+                <button type="button" className="header-button" onClick={saveWorkflow}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 4h11l3 3v13H5z" /><path d="M8 4v6h8V4M8 20v-6h8v6" /></svg>
+                  Save
+                </button>
+                <button type="button" className="header-button header-button-icon" onClick={exportWorkflow} aria-label="Export workflow" title="Export workflow">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" /></svg>
+                </button>
+                <button type="button" className="header-button header-button-icon" onClick={shareWorkflow} aria-label="Share workflow" title="Share workflow">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2.5" /><circle cx="6" cy="12" r="2.5" /><circle cx="18" cy="19" r="2.5" /><path d="m8.2 10.8 7.6-4.6m-7.6 7 7.6 4.6" /></svg>
+                </button>
+                <span className="save-status" aria-live="polite">{savedAt ? `Saved ${new Date(savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'Unsaved'}</span>
+              </>
+            )}
             <span className="beta-badge">Beta</span>
           </div>
         </div>
@@ -196,6 +305,7 @@ function App() {
                 workflow={workflow}
                 selectedNodeId={selectedNodeId}
                 onNodeSelect={setSelectedNodeId}
+                onNodePositionChange={handleNodePositionChange}
               />
               <InspectorPanel
                 key={selectedNode?.id ?? 'empty'}
@@ -210,6 +320,8 @@ function App() {
           </div>
         )}
       </main>
+
+      {notice && <div className="app-notice" role="status">{notice}</div>}
 
       <footer className="app-footer">
         <div className="container">

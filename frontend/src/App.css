@@ -36,6 +36,100 @@
   gap: 11px;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.history-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.icon-button,
+.header-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 10px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.icon-button {
+  min-width: 32px;
+  min-height: 30px;
+  padding: 0 6px;
+}
+
+.icon-button svg,
+.header-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.icon-button:hover:not(:disabled),
+.header-button:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+  border-color: var(--border-subtle);
+  transform: translateY(-1px);
+}
+
+.icon-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.header-button-icon {
+  padding: 0 9px;
+}
+
+.save-status {
+  max-width: 86px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.app-notice {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 100;
+  padding: 11px 15px;
+  color: var(--text-primary);
+  background: #171927;
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  font-size: 0.82rem;
+  animation: noticeIn 0.24s ease-out both;
+}
+
+@keyframes noticeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .logo-icon {
   width: 30px;
   height: 30px;
@@ -208,5 +302,30 @@
 
   .container.workflow-section {
     padding: 0 14px 64px;
+  }
+
+  .app-header .header-inner {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .header-actions {
+    gap: 4px;
+  }
+
+  .header-button:not(.header-button-icon),
+  .save-status {
+    display: none;
+  }
+
+  .beta-badge {
+    padding: 5px 8px;
+  }
+
+  .app-notice {
+    right: 14px;
+    bottom: 14px;
+    left: 14px;
+    text-align: center;
   }
 }

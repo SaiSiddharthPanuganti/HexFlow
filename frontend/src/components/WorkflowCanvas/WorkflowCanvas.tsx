@@ -58,12 +58,14 @@ interface WorkflowCanvasProps {
   workflow: Workflow;
   selectedNodeId: string | null;
   onNodeSelect: (nodeId: string | null) => void;
+  onNodePositionChange: (nodeId: string, position: { x: number; y: number }) => void;
 }
 
 export default function WorkflowCanvas({
   workflow,
   selectedNodeId,
   onNodeSelect,
+  onNodePositionChange,
 }: WorkflowCanvasProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<CustomNodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -140,12 +142,19 @@ export default function WorkflowCanvas({
       </div>
 
       <div className="workflow-flow" ref={reactFlowWrapper}>
-        <ReactFlow
+        {nodes.length === 0 ? (
+          <div className="canvas-empty" role="status">
+            <div className="canvas-empty-spinner" aria-hidden="true" />
+            <strong>Preparing your workflow</strong>
+            <span>Mapping the creative steps onto the canvas…</span>
+          </div>
+        ) : <ReactFlow
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onNodeClick={(_event, node) => onNodeSelect(node.id)}
+          onNodeDragStop={(_event, node) => onNodePositionChange(node.id, node.position)}
           onPaneClick={() => onNodeSelect(null)}
           onInit={onInit}
           fitView
@@ -159,7 +168,7 @@ export default function WorkflowCanvas({
         >
           <Background variant={BackgroundVariant.Dots} gap={26} size={1.6} color="rgba(255,255,255,0.14)" />
           <Controls showInteractive={false} />
-        </ReactFlow>
+        </ReactFlow>}
       </div>
     </div>
   );
