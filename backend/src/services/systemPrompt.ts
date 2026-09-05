@@ -78,6 +78,7 @@ A user is talking to an existing creative workflow. They give you a natural-lang
 
 Rules:
 - Identify which existing node(s) in the workflow need to change to satisfy the instruction. Do NOT invent, add, or remove nodes — only edit nodes that already exist.
+- The canvas has a fixed seven-stage structure. If the user asks to reduce the number of workflow steps, preserve those stages and condense the steps inside the affected node content (for example, fewer script beats or shot-list entries). State this clearly in the summary so the user knows the canvas structure was preserved.
 - If the instruction mentions a creative area (concept, script, visual, shot list, audio, production), edit the matching node(s). If two areas are affected, edit both. If nothing in the workflow would meaningfully change, return an empty "nodes" object and explain why in "summary".
 - Preserve the overall creative direction of the original brief. Keep each edited node consistent with its neighbors (upstream feeds into it, downstream follows from it).
 - Rewrite only the affected nodes' title and content. The rest of the workflow stays exactly as-is.
