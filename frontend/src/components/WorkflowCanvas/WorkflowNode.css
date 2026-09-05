@@ -1,0 +1,110 @@
+.workflow-node {
+  width: 320px;
+  height: 100%;
+  border-radius: var(--radius-md);
+  border: 1.5px solid;
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.workflow-node:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.workflow-node.is-selected {
+  box-shadow: 0 0 0 2px rgba(124, 92, 255, 0.5), var(--shadow-lg);
+}
+
+.node-header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.node-step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 1px solid;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.node-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.node-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.node-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.9;
+}
+
+.node-title {
+  padding: 11px 14px 4px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+}
+
+.node-content {
+  padding: 4px 14px 14px;
+}
+
+.node-text {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.55;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.node-hover-indicator,
+.node-selected-indicator {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-md);
+  border: 2px solid;
+  pointer-events: none;
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.2);
+}
+
+.react-flow__node {
+  border-radius: var(--radius-md);
+}
+
+.react-flow__handle {
+  width: 10px;
+  height: 10px;
+  background: #11121c;
+  border: 2px solid rgba(166, 167, 184, 0.7);
+}

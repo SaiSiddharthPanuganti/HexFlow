@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HexFlow Frontend Test</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+    .test-result {
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 0.5rem;
+    }
+    .success {
+      background-color: #d1fae5;
+      border: 1px solid #10b981;
+      color: #065f46;
+    }
+    .error {
+      background-color: #fee2e2;
+      border: 1px solid #ef4444;
+      color: #991b1b;
+    }
+    button {
+      padding: 0.75rem 1.5rem;
+      background-color: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 0.5rem;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #2563eb;
+    }
+    pre {
+      background-color: #f3f4f6;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>HexFlow Frontend Integration Test</h1>
+  <p>This tests the complete flow from frontend to backend.</p>
+  
+  <button onclick="testWorkflowGeneration()">Test Workflow Generation</button>
+  
+  <div id="results"></div>
+
+  <script>
+    async function testWorkflowGeneration() {
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '<p>Testing...</p>';
+      
+      try {
+        // Test backend health first
+        const healthResponse = await fetch('http://localhost:3000/api/health');
+        const healthData = await healthResponse.json();
+        
+        resultsDiv.innerHTML += `
+          <div class="test-result success">
+            <strong>✅ Backend Health Check:</strong> ${healthData.message}
+          </div>
+        `;
+        
+        // Test workflow generation
+        const workflowResponse = await fetch('http://localhost:3000/api/workflow/generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            brief: 'Create a 30 second cinematic Instagram advertisement for a premium coffee brand targeting young professionals.'
+          })
+        });
+        
+        const workflowData = await workflowResponse.json();
+        
+        if (workflowResponse.ok) {
+          resultsDiv.innerHTML += `
+            <div class="test-result success">
+              <strong>✅ Workflow Generated:</strong><br>
+              <strong>Title:</strong> ${workflowData.workflow.title}<br>
+              <strong>Nodes:</strong> ${workflowData.workflow.nodes.length}<br>
+              <strong>Edges:</strong> ${workflowData.workflow.edges.length}
+            </div>
+            <details>
+              <summary>View Full Workflow JSON</summary>
+              <pre>${JSON.stringify(workflowData.workflow, null, 2)}</pre>
+            </details>
+          `;
+        } else {
+          throw new Error(workflowData.message || 'Failed to generate workflow');
+        }
+        
+      } catch (error) {
+        resultsDiv.innerHTML += `
+          <div class="test-result error">
+            <strong>❌ Error:</strong> ${error.message}
+          </div>
+        `;
+      }
+    }
+  </script>
+</body>
+</html>

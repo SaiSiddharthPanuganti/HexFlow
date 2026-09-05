@@ -1,0 +1,233 @@
+.brief-form {
+  width: 100%;
+}
+
+.form-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 28px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.form-card:focus-within {
+  border-color: rgba(124, 92, 255, 0.35);
+  box-shadow: var(--shadow-glow);
+}
+
+.form-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.form-header-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  color: var(--accent-1);
+  background: rgba(124, 92, 255, 0.12);
+  border: 1px solid rgba(124, 92, 255, 0.24);
+}
+
+.form-header-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.form-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.form-label {
+  font-size: 0.975rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.form-hint {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+/* ===== Example chips ===== */
+.examples {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.examples-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-right: 2px;
+}
+
+.example-chip {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  padding: 6px 13px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.example-chip:hover:not(:disabled) {
+  color: #fff;
+  border-color: rgba(124, 92, 255, 0.5);
+  background: rgba(124, 92, 255, 0.12);
+}
+
+.example-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== Textarea ===== */
+.brief-textarea {
+  width: 100%;
+  padding: 16px 18px;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: rgba(9, 10, 17, 0.6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  resize: vertical;
+  min-height: 170px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.brief-textarea:hover {
+  border-color: var(--border-strong);
+}
+
+.brief-textarea:focus {
+  outline: none;
+  border-color: rgba(124, 92, 255, 0.55);
+  box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.16);
+}
+
+.brief-textarea:disabled {
+  background: rgba(9, 10, 17, 0.35);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.brief-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+/* ===== Error ===== */
+.error-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-md);
+  color: var(--danger);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.error-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+/* ===== Submit ===== */
+.submit-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 50px;
+  padding: 0 26px;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #fff;
+  background: var(--accent-gradient);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(124, 92, 255, 0.3);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease;
+}
+
+.submit-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+  box-shadow: 0 8px 28px rgba(124, 92, 255, 0.42);
+}
+
+.submit-button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 4px 16px rgba(124, 92, 255, 0.3);
+}
+
+.submit-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.button-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.spinner {
+  width: 1.15rem;
+  height: 1.15rem;
+  animation: spin 0.9s linear infinite;
+}
+
+.spinner-circle {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-dasharray: 46;
+  stroke-dashoffset: 23;
+  stroke-linecap: round;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 640px) {
+  .form-card {
+    padding: 20px;
+  }
+
+  .brief-textarea {
+    font-size: 0.9375rem;
+  }
+}
