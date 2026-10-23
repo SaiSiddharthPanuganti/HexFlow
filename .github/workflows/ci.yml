@@ -37,6 +37,8 @@ jobs:
         run: npm ci
       - name: Compile TypeScript
         run: npm run build
+      - name: Run backend tests
+        run: npm test
 
   frontend:
     name: Frontend build and lint
