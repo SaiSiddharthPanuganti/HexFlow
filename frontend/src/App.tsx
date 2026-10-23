@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Analytics } from '@vercel/analytics/react'
 import type { Workflow, WorkflowNode } from './types/workflow.types'
 import BriefForm from './components/BriefForm'
