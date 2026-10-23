@@ -23,7 +23,7 @@ import { isValidNodeType } from '../types/workflow.types';
 /**
  * Validate the workflow generation request
  */
-function validateGenerateRequest(body: any): body is GenerateWorkflowRequest {
+export function validateGenerateRequest(body: any): body is GenerateWorkflowRequest {
   return (
     body &&
     typeof body === 'object' &&
@@ -37,7 +37,7 @@ function validateGenerateRequest(body: any): body is GenerateWorkflowRequest {
 /**
  * Validate a workflow node object
  */
-function isValidNode(value: any): value is WorkflowNode {
+export function isValidNode(value: any): value is WorkflowNode {
   return (
     value &&
     typeof value === 'object' &&
@@ -59,7 +59,7 @@ function isValidNode(value: any): value is WorkflowNode {
 /**
  * Validate the node regeneration request
  */
-function validateRegenerateRequest(body: any): body is RegenerateNodeRequest {
+export function validateRegenerateRequest(body: any): body is RegenerateNodeRequest {
   return (
     body &&
     typeof body === 'object' &&
@@ -92,7 +92,7 @@ function isValidEdge(value: any): value is WorkflowEdge {
 /**
  * Validate a complete workflow object
  */
-function isValidWorkflow(value: any): value is Workflow {
+export function isValidWorkflow(value: any): value is Workflow {
   if (
     !value ||
     typeof value !== 'object' ||
@@ -118,7 +118,7 @@ function isValidWorkflow(value: any): value is Workflow {
 /**
  * Validate the workflow edit request
  */
-function validateEditRequest(body: any): body is EditWorkflowRequest {
+export function validateEditRequest(body: any): body is EditWorkflowRequest {
   return (
     body &&
     typeof body === 'object' &&
