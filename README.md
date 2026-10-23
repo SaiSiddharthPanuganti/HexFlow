@@ -26,7 +26,8 @@ The strongest product behavior is scoped AI editing: the agent changes only the 
 - Structural workflow edits: update, add, and remove steps
 - Automatic edge rebuilding when steps are added or removed
 - Undo and redo
-- Local browser save and JSON export
+- Supabase email authentication and per-user cloud workflow storage
+- Local browser cache and JSON export
 - Responsive layout and reduced-motion support
 
 ## Architecture
@@ -152,6 +153,15 @@ Errors use this shape:
 - AI generation retries once for transient provider, empty-response, or malformed-output failures.
 - Provider and configuration failures are returned without exposing credentials.
 - The backend logs only a short malformed-response snippet for diagnostics.
+
+## Supabase Authentication and Cloud Storage
+
+1. In the Supabase SQL Editor, run `supabase/migrations/20261023000000_create_workflows.sql`.
+2. In Supabase Authentication URL Configuration, set the Site URL to your deployed frontend and add local/deployed redirect URLs.
+3. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in `frontend/.env.local` and Vercel environment settings. Use the project's public URL and publishable key only; never expose a service-role or secret key in frontend variables.
+4. Rebuild and redeploy the frontend after changing environment variables.
+
+Email/password sign-up and sign-in are provided by Supabase Auth. Cloud workflow rows are scoped by database Row Level Security so each signed-in user can access only their own records. The app loads the most recently updated workflow and the Save button writes it to cloud storage.
 
 ## Local Development
 
