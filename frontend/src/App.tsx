@@ -7,9 +7,56 @@ import InspectorPanel from './components/InspectorPanel/InspectorPanel'
 import WorkflowChat from './components/WorkflowChat/WorkflowChat'
 import { apiUrl } from './lib/api'
 import { getNodeLabel } from './components/WorkflowCanvas/nodeStyles'
+import { getCurrentSession, signIn, signOut, signUp, supabaseConfigured, cloudLoadLatest, cloudSaveWorkflow, type AuthSession } from './lib/supabase'
 import './App.css'
 
 function App() {
+  const [session, setSession] = useState<AuthSession | null>(null)
+  const [authReady, setAuthReady] = useState(false)
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
+  const [authEmail, setAuthEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authBusy, setAuthBusy] = useState(false)
+  const [authError, setAuthError] = useState<string | null>(null)
+  const [cloudBusy, setCloudBusy] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    getCurrentSession().then((current) => {
+      if (active) { setSession(current); setAuthReady(true) }
+    }).catch(() => { if (active) setAuthReady(true) })
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    if (!session) return
+    let active = true
+    setCloudBusy(true)
+    cloudLoadLatest(session).then((saved) => {
+      if (!active) return
+      if (saved) {
+        setWorkflow(saved.workflow); setBrief(saved.brief); setSavedAt(Date.parse(saved.updatedAt))
+        localStorage.setItem('hexflow-workflow', JSON.stringify(saved.workflow))
+        localStorage.setItem('hexflow-brief', saved.brief)
+      } else {
+        setWorkflow(null); setBrief(''); setSavedAt(null)
+      }
+    }).catch((error: unknown) => {
+      if (active) setNotice(error instanceof Error ? error.message : 'Could not load cloud workflow')
+    }).finally(() => { if (active) setCloudBusy(false) })
+    return () => { active = false }
+  }, [session])
+
+  const handleAuth = async (event: import('react').FormEvent<HTMLFormElement>) => {
+    event.preventDefault(); setAuthBusy(true); setAuthError(null)
+    try {
+      const next = authMode === 'signin' ? await signIn(authEmail, authPassword) : await signUp(authEmail, authPassword)
+      if (next) setSession(next)
+      else setAuthError('Check your email to confirm your account, then sign in.')
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'Authentication failed')
+    } finally { setAuthBusy(false) }
+  }
   const [workflow, setWorkflow] = useState<Workflow | null>(() => {
     try {
       const saved = localStorage.getItem('hexflow-workflow')
@@ -92,14 +139,20 @@ function App() {
     setSelectedNodeId(null)
   }
 
-  const saveWorkflow = () => {
-    if (!workflow) return
-    localStorage.setItem('hexflow-workflow', JSON.stringify(workflow))
-    localStorage.setItem('hexflow-brief', brief)
-    const timestamp = Date.now()
-    localStorage.setItem('hexflow-saved-at', String(timestamp))
-    setSavedAt(timestamp)
-    setNotice('Workflow saved to this browser')
+  const saveWorkflow = async () => {
+    if (!workflow || !session) return
+    setCloudBusy(true)
+    try {
+      await cloudSaveWorkflow(session, workflow, brief)
+      const timestamp = Date.now()
+      localStorage.setItem('hexflow-workflow', JSON.stringify(workflow))
+      localStorage.setItem('hexflow-brief', brief)
+      localStorage.setItem('hexflow-saved-at', String(timestamp))
+      setSavedAt(timestamp)
+      setNotice('Workflow saved to your account')
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Cloud save failed')
+    } finally { setCloudBusy(false) }
   }
 
   const exportWorkflow = () => {
@@ -224,6 +277,26 @@ function App() {
 
   const selectedNode = workflow?.nodes.find((n) => n.id === selectedNodeId) ?? null
 
+  if (!authReady) return <main className="auth-screen"><div className="auth-card"><h1>HexFlow</h1><p>Loading your workspace…</p></div></main>
+
+  if (!supabaseConfigured) return <main className="auth-screen"><div className="auth-card"><h1>Connect Supabase</h1><p>Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in your environment and Vercel settings.</p></div></main>
+
+  if (!session) return (
+    <main className="auth-screen">
+      <form className="auth-card" onSubmit={handleAuth}>
+        <h1>{authMode === 'signin' ? 'Welcome back' : 'Create your account'}</h1>
+        <p>Sign in to access your workflows across devices.</p>
+        <label htmlFor="auth-email">Email</label>
+        <input id="auth-email" type="email" autoComplete="email" required value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} />
+        <label htmlFor="auth-password">Password</label>
+        <input id="auth-password" type="password" minLength={8} autoComplete={authMode === 'signin' ? 'current-password' : 'new-password'} required value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} />
+        {authError && <p className="auth-error" role="alert">{authError}</p>}
+        <button className="auth-submit" type="submit" disabled={authBusy}>{authBusy ? 'Please wait…' : authMode === 'signin' ? 'Sign in' : 'Create account'}</button>
+        <button className="auth-switch" type="button" onClick={() => { setAuthMode(authMode === 'signin' ? 'signup' : 'signin'); setAuthError(null) }}>{authMode === 'signin' ? 'New to HexFlow? Create an account' : 'Already have an account? Sign in'}</button>
+      </form>
+    </main>
+  )
+
   return (
     <div className="app">
       <header className="app-header">
@@ -267,7 +340,7 @@ function App() {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5" /><path d="M20 9H10a6 6 0 0 0 0 12h1" /></svg>
                   </button>
                 </div>
-                <button type="button" className="header-button" onClick={saveWorkflow}>
+                <button type="button" className="header-button" onClick={saveWorkflow} disabled={cloudBusy}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 4h11l3 3v13H5z" /><path d="M8 4v6h8V4M8 20v-6h8v6" /></svg>
                   Save
                 </button>
@@ -277,9 +350,11 @@ function App() {
                 <button type="button" className="header-button header-button-icon" onClick={shareWorkflow} aria-label="Share workflow" title="Share workflow">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2.5" /><circle cx="6" cy="12" r="2.5" /><circle cx="18" cy="19" r="2.5" /><path d="m8.2 10.8 7.6-4.6m-7.6 7 7.6 4.6" /></svg>
                 </button>
-                <span className="save-status" aria-live="polite">{savedAt ? `Saved ${new Date(savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'Unsaved'}</span>
+                <span className="save-status" aria-live="polite">{cloudBusy ? 'Syncing…' : savedAt ? `Saved ${new Date(savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'Unsaved'}</span>
               </>
             )}
+            <span className="save-status">{session.user.email}</span>
+            <button type="button" className="header-button" onClick={() => { void signOut().finally(() => { setSession(null); setWorkflow(null); setBrief('') }) }}>Sign out</button>
             <span className="beta-badge">Beta</span>
           </div>
         </div>
