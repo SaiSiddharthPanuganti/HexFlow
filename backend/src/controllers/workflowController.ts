@@ -29,7 +29,8 @@ function validateGenerateRequest(body: any): body is GenerateWorkflowRequest {
     typeof body === 'object' &&
     'brief' in body &&
     typeof body.brief === 'string' &&
-    body.brief.trim().length > 0
+    body.brief.trim().length > 0 &&
+    body.brief.length <= 10_000
   );
 }
 
@@ -45,7 +46,9 @@ function isValidNode(value: any): value is WorkflowNode {
     typeof value.type === 'string' &&
     isValidNodeType(value.type) &&
     typeof value.title === 'string' &&
+    value.title.length <= 300 &&
     typeof value.content === 'string' &&
+    value.content.length <= 10_000 &&
     value.position &&
     typeof value.position === 'object' &&
     typeof value.position.x === 'number' &&
@@ -62,10 +65,13 @@ function validateRegenerateRequest(body: any): body is RegenerateNodeRequest {
     typeof body === 'object' &&
     typeof body.brief === 'string' &&
     body.brief.trim().length > 0 &&
+    body.brief.length <= 10_000 &&
     isValidNode(body.node) &&
     Array.isArray(body.upstreamNodes) &&
+    body.upstreamNodes.length <= 100 &&
     body.upstreamNodes.every(isValidNode) &&
     Array.isArray(body.downstreamNodes) &&
+    body.downstreamNodes.length <= 100 &&
     body.downstreamNodes.every(isValidNode)
   );
 }
@@ -94,8 +100,10 @@ function isValidWorkflow(value: any): value is Workflow {
     typeof value.title !== 'string' ||
     typeof value.description !== 'string' ||
     !Array.isArray(value.nodes) ||
+    value.nodes.length > 100 ||
     !value.nodes.every(isValidNode) ||
-    !Array.isArray(value.edges)
+    !Array.isArray(value.edges) ||
+    value.edges.length > 200
   ) {
     return false;
   }
@@ -118,6 +126,7 @@ function validateEditRequest(body: any): body is EditWorkflowRequest {
     body.brief.trim().length > 0 &&
     typeof body.instruction === 'string' &&
     body.instruction.trim().length > 0 &&
+    body.instruction.length <= 2_000 &&
     isValidWorkflow(body.workflow)
   );
 }
