@@ -3,13 +3,15 @@
 -- only authenticated CRUD policies scoped to auth.uid().
 
 select
-  schemaname,
-  tablename,
-  rowsecurity,
-  force_row_security
-from pg_tables
-where schemaname not in ('pg_catalog', 'information_schema')
-order by schemaname, tablename;
+  n.nspname as schemaname,
+  c.relname as tablename,
+  c.relrowsecurity as rowsecurity,
+  c.relforcerowsecurity as force_row_security
+from pg_class c
+join pg_namespace n on n.oid = c.relnamespace
+where n.nspname not in ('pg_catalog', 'information_schema')
+  and c.relkind in ('r', 'p')
+order by n.nspname, c.relname;
 
 select
   schemaname,
