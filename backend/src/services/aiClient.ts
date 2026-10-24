@@ -9,6 +9,7 @@ import { config } from '../config';
 import { WorkflowGenerationError } from '../utils/workflowErrors';
 
 let client: GoogleGenAI | null = null;
+const AI_TIMEOUT_MS = 45_000;
 
 export function getAIClient(): GoogleGenAI {
   if (!config.geminiApiKey) {
@@ -24,4 +25,18 @@ export function getAIClient(): GoogleGenAI {
   }
 
   return client;
+}
+
+export async function withAITimeout<T>(operation: Promise<T>): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<T>((_, reject) => {
+        timeout = setTimeout(() => reject(new Error('AI request timed out')), AI_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
 }

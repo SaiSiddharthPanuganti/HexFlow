@@ -39,6 +39,8 @@ jobs:
         run: npm run build
       - name: Run backend tests
         run: npm test
+      - name: Audit production dependencies
+        run: npm audit --omit=dev
 
   frontend:
     name: Frontend build and lint
@@ -61,3 +63,5 @@ jobs:
         run: npm run build
       - name: Lint
         run: npm run lint
+      - name: Audit production dependencies
+        run: npm audit --omit=dev

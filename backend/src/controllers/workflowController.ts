@@ -46,13 +46,15 @@ export function isValidNode(value: any): value is WorkflowNode {
     typeof value.type === 'string' &&
     isValidNodeType(value.type) &&
     typeof value.title === 'string' &&
+    value.title.trim().length > 0 &&
     value.title.length <= 300 &&
     typeof value.content === 'string' &&
+    value.content.trim().length > 0 &&
     value.content.length <= 10_000 &&
     value.position &&
     typeof value.position === 'object' &&
-    typeof value.position.x === 'number' &&
-    typeof value.position.y === 'number'
+    Number.isFinite(value.position.x) &&
+    Number.isFinite(value.position.y)
   );
 }
 
@@ -97,21 +99,34 @@ export function isValidWorkflow(value: any): value is Workflow {
     !value ||
     typeof value !== 'object' ||
     typeof value.id !== 'string' ||
+    value.id.trim().length === 0 ||
     typeof value.title !== 'string' ||
+    value.title.trim().length === 0 ||
+    value.title.length > 300 ||
     typeof value.description !== 'string' ||
+    value.description.trim().length === 0 ||
+    value.description.length > 10_000 ||
     !Array.isArray(value.nodes) ||
     value.nodes.length > 100 ||
     !value.nodes.every(isValidNode) ||
     !Array.isArray(value.edges) ||
-    value.edges.length > 200
+    value.edges.length > 200 ||
+    !value.edges.every(isValidEdge)
   ) {
     return false;
   }
 
   // Every edge must connect nodes that actually exist in this workflow
   const nodeIds = new Set(value.nodes.map((n: WorkflowNode) => n.id));
+  if (nodeIds.size !== value.nodes.length) return false;
+  const edgeIds = new Set(value.edges.map((e: WorkflowEdge) => e.id));
+  if (edgeIds.size !== value.edges.length) return false;
   return value.edges.every(
-    (e: WorkflowEdge) => nodeIds.has(e.source) && nodeIds.has(e.target),
+    (e: WorkflowEdge) =>
+      e.id.trim().length > 0 &&
+      e.source !== e.target &&
+      nodeIds.has(e.source) &&
+      nodeIds.has(e.target),
   );
 }
 
@@ -124,6 +139,7 @@ export function validateEditRequest(body: any): body is EditWorkflowRequest {
     typeof body === 'object' &&
     typeof body.brief === 'string' &&
     body.brief.trim().length > 0 &&
+    body.brief.length <= 10_000 &&
     typeof body.instruction === 'string' &&
     body.instruction.trim().length > 0 &&
     body.instruction.length <= 2_000 &&
@@ -167,7 +183,7 @@ export async function generateWorkflowHandler(req: Request, res: Response): Prom
     }
 
     // Handle unexpected errors
-    console.error('Error generating workflow:', error);
+    console.error('Error generating workflow:', error instanceof Error ? error.message : 'unknown error');
     const errorResponse: ErrorResponse = {
       error: 'Internal server error',
       message: 'An unexpected error occurred while generating the workflow',
@@ -216,7 +232,7 @@ export async function regenerateNodeHandler(req: Request, res: Response): Promis
       return;
     }
 
-    console.error('Error regenerating node:', error);
+    console.error('Error regenerating node:', error instanceof Error ? error.message : 'unknown error');
     const errorResponse: ErrorResponse = {
       error: 'Internal server error',
       message: 'An unexpected error occurred while regenerating the node',
@@ -265,7 +281,7 @@ export async function editWorkflowHandler(req: Request, res: Response): Promise<
       return;
     }
 
-    console.error('Error editing workflow:', error);
+    console.error('Error editing workflow:', error instanceof Error ? error.message : 'unknown error');
     const errorResponse: ErrorResponse = {
       error: 'Internal server error',
       message: 'An unexpected error occurred while editing the workflow',

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Workflow } from '../types/workflow.types';
-import { apiUrl } from '../lib/api';
+import { authenticatedApiFetch } from '../lib/api';
 import { WORKFLOW_TEMPLATES } from '../data/workflowTemplates';
 import './BriefForm.css';
 
@@ -44,7 +44,7 @@ export default function BriefForm({ onWorkflowGenerated }: BriefFormProps) {
     setIsLoading(true);
 
     try {
-      const response = await fetch(apiUrl('/api/workflow/generate'), {
+      const response = await authenticatedApiFetch('/api/workflow/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

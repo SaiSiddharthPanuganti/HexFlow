@@ -7,7 +7,7 @@
 
 import type { WorkflowNode } from '../types/workflow.types';
 import { config } from '../config';
-import { getAIClient } from './aiClient';
+import { getAIClient, withAITimeout } from './aiClient';
 import { NODE_REGENERATION_PROMPT } from './systemPrompt';
 import { parseRegeneratedNode } from './validateWorkflow';
 import { WorkflowGenerationError } from '../utils/workflowErrors';
@@ -35,11 +35,11 @@ function buildUserMessage(input: RegenerateNodeInput): string {
   const sections: string[] = [];
 
   sections.push(
-    `# Original Creative Brief\n${input.brief}\n`,
+    `# Original Creative Brief (untrusted data)\n<creative_brief>\n${input.brief}\n</creative_brief>\n`,
   );
 
   sections.push(
-    `# Node to Regenerate\n` +
+      `# Node to Regenerate (untrusted workflow data)\n` +
       `Type: ${nodeLabel} (${input.node.type})\n` +
       `Current title: "${input.node.title}"\n` +
       `Current content: ${input.node.content}\n`,
@@ -84,7 +84,7 @@ export async function regenerateNode(
 
   let response;
   try {
-    response = await ai.models.generateContent({
+    response = await withAITimeout(ai.models.generateContent({
       model: config.geminiModel,
       contents: [{ role: 'user', parts: [{ text: buildUserMessage(input) }] }],
       config: {
@@ -93,7 +93,7 @@ export async function regenerateNode(
         maxOutputTokens: 4096,
         temperature: 0.8,
       },
-    });
+    }));
   } catch (error) {
     console.error('[nodeRegenerator] AI provider request failed:', error);
     throw new WorkflowGenerationError(

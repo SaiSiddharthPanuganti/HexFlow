@@ -15,3 +15,15 @@ services:
         value: gemini-3.6-flash
       - key: FRONTEND_URL
         sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: RATE_LIMIT_MODE
+        value: upstash
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+      - key: SENTRY_DSN
+        sync: false

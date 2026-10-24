@@ -35,9 +35,9 @@ The strongest product behavior is scoped AI editing: the agent changes only the 
 ```text
 Browser (React + Vite)
   |
-  | POST /api/workflow/generate
-  | POST /api/workflow/regenerate
-  | POST /api/workflow/edit
+  | POST /api/workflow/generate (Supabase JWT required)
+  | POST /api/workflow/regenerate (Supabase JWT required)
+  | POST /api/workflow/edit (Supabase JWT required)
   v
 Express + TypeScript backend
   |
@@ -159,9 +159,12 @@ Errors use this shape:
 1. In the Supabase SQL Editor, run `supabase/migrations/20261023000000_create_workflows.sql`.
 2. In Supabase Authentication URL Configuration, set the Site URL to your deployed frontend and add local/deployed redirect URLs.
 3. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in `frontend/.env.local` and Vercel environment settings. Use the project's public URL and publishable key only; never expose a service-role or secret key in frontend variables.
-4. Rebuild and redeploy the frontend after changing environment variables.
+4. Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in Render. The backend verifies each AI request against Supabase Auth; no service-role key is used by the application.
+5. Rebuild and redeploy the frontend after changing environment variables.
 
-Email/password sign-up and sign-in are provided by Supabase Auth. Cloud workflow rows are scoped by database Row Level Security so each signed-in user can access only their own records. The app loads the most recently updated workflow and the Save button writes it to cloud storage.
+Production operations, migration verification, smoke tests, and rollback steps are documented in `OPERATIONS_RUNBOOK.md`. The RLS inventory/test queries are in `supabase/verify_rls.sql`.
+
+Email/password sign-up, sign-in, and reset-email requests are provided by Supabase Auth. Cloud workflow rows are scoped by database Row Level Security so each signed-in user can access only their own records. The app loads the most recently updated workflow and the Save button writes it to cloud storage with optimistic revision checks.
 
 ## Local Development
 
@@ -247,6 +250,8 @@ Required Render environment variables:
 NODE_ENV=production
 GEMINI_API_KEY=<secret>
 FRONTEND_URL=https://<your-vercel-app>.vercel.app
+SUPABASE_URL=https://<your-project-ref>.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
 
 Configured model:
@@ -276,11 +281,12 @@ The frontend lint currently reports two non-blocking React Flow warnings concern
 - `.env`, `.env.local`, and local dependency/build directories are ignored.
 - `VITE_API_URL` contains only the public backend URL and must never contain a secret.
 - Production CORS requires an explicit frontend origin.
-- No authentication or database is included in this prototype.
+- AI endpoints require a Supabase access token.
+- Supabase publishable keys are browser-visible by design; never use a service-role key in frontend variables.
 
 ## Known Limitations
 
-- Workflows are saved in browser local storage, not a shared database.
+- Local browser storage is user-scoped and acts as a draft cache; cloud persistence is stored in Supabase.
 - Share currently shares the workspace URL; it does not create a server-backed shared workflow.
 - AI latency depends on the Gemini provider.
 - Frontend and backend workflow types are mirrored manually rather than published from a shared package.

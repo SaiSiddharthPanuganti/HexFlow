@@ -72,6 +72,14 @@ test('workflow validation enforces node/edge limits and valid edge endpoints', (
     ...validWorkflow,
     edges: Array.from({ length: 201 }, (_, i) => ({ id: `edge-${i}`, source: 'node-1', target: 'node-1' })),
   }), false);
+  assert.equal(isValidWorkflow({
+    ...validWorkflow,
+    nodes: [validNode, { ...validNode, id: 'node-1' }],
+  }), false);
+  assert.equal(isValidWorkflow({
+    ...validWorkflow,
+    nodes: [{ ...validNode, position: { x: Number.NaN, y: 0 } }],
+  }), false);
 });
 
 test('edit request rejects empty or oversized instructions', () => {

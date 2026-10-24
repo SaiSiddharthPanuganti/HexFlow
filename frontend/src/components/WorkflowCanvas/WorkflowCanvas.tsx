@@ -12,47 +12,10 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import WorkflowNode from './WorkflowNode';
+import { workflowToReactFlow, type CustomNodeData } from './workflowFlow';
 import './WorkflowCanvas.css';
 
-interface CustomNodeData extends Record<string, unknown> {
-  type: string;
-  title: string;
-  content: string;
-}
-
-export function workflowToReactFlow(workflow: Workflow): {
-  nodes: Node<CustomNodeData>[];
-  edges: Edge[];
-} {
-  const nodes: Node<CustomNodeData>[] = workflow.nodes.map((node) => ({
-    id: node.id,
-    type: 'workflowNode',
-    position: node.position,
-    data: {
-      type: node.type,
-      title: node.title,
-      content: node.content,
-    },
-    style: { width: 320, height: 140 },
-  }));
-
-  const edges: Edge[] = workflow.edges.map((edge) => ({
-    id: edge.id,
-    source: edge.source,
-    target: edge.target,
-    type: 'default',
-    style: {
-      stroke: 'rgba(166, 167, 184, 0.5)',
-      strokeWidth: 2,
-    },
-    markerEnd: {
-      type: 'arrowclosed' as const,
-      color: 'rgba(166, 167, 184, 0.5)',
-    },
-  }));
-
-  return { nodes, edges };
-}
+const nodeTypes = { workflowNode: WorkflowNode };
 
 interface WorkflowCanvasProps {
   workflow: Workflow;
@@ -72,7 +35,6 @@ export default function WorkflowCanvas({
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const reactFlowInstanceRef = useRef<any>(null);
 
-  const nodeTypes = useRef({ workflowNode: WorkflowNode });
   const syncedWorkflowId = useRef<string | null>(null);
 
   // Sync React Flow nodes with the workflow:
@@ -176,7 +138,7 @@ export default function WorkflowCanvas({
           fitViewOptions={{ padding: 0.22 }}
           minZoom={0.3}
           maxZoom={1.8}
-          nodeTypes={nodeTypes.current}
+           nodeTypes={nodeTypes}
           nodesConnectable={false}
           proOptions={{ hideAttribution: false }}
           attributionPosition="bottom-right"

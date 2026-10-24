@@ -8,6 +8,7 @@ interface InspectorPanelProps {
   onClose: () => void;
   onSave: (nodeId: string, title: string, content: string) => void;
   onRegenerate: (nodeId: string) => Promise<WorkflowNode>;
+  onDirtyChange: (dirty: boolean) => void;
 }
 
 interface FieldErrors {
@@ -15,7 +16,7 @@ interface FieldErrors {
   content?: string;
 }
 
-export default function InspectorPanel({ node, onClose, onSave, onRegenerate }: InspectorPanelProps) {
+export default function InspectorPanel({ node, onClose, onSave, onRegenerate, onDirtyChange }: InspectorPanelProps) {
   const [title, setTitle] = useState(node?.title ?? '');
   const [content, setContent] = useState(node?.content ?? '');
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -24,6 +25,11 @@ export default function InspectorPanel({ node, onClose, onSave, onRegenerate }: 
   const [regenerateError, setRegenerateError] = useState<string | null>(null);
 
   const isDirty = node ? title !== node.title || content !== node.content : false;
+
+  useEffect(() => {
+    onDirtyChange(isDirty);
+    return () => onDirtyChange(false);
+  }, [isDirty, onDirtyChange]);
 
   const requestClose = () => {
     if (isDirty) {

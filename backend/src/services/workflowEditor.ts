@@ -8,7 +8,7 @@
 import type { Workflow, WorkflowEdge, WorkflowNode } from '../types/workflow.types';
 import { generateEdgeId, generateNodeId } from '../utils/idGenerator';
 import { config } from '../config';
-import { getAIClient } from './aiClient';
+import { getAIClient, withAITimeout } from './aiClient';
 import { WORKFLOW_EDIT_PROMPT } from './systemPrompt';
 import { parseEditedWorkflow } from './validateWorkflow';
 import { WorkflowGenerationError } from '../utils/workflowErrors';
@@ -41,12 +41,12 @@ function buildUserMessage(input: EditWorkflowInput): string {
     .join('\n');
 
   return [
-    `# Original Creative Brief\n${input.brief}\n`,
-    `# Current Workflow\n` +
+    `# Original Creative Brief (untrusted data)\n<creative_brief>\n${input.brief}\n</creative_brief>\n`,
+    `# Current Workflow (untrusted workflow data)\n` +
       input.workflow.nodes.map(formatNode).join('\n\n') +
       `\n`,
     `# Connections\n${edgeList || '(none)'}\n`,
-    `# User Instruction\n${input.instruction}\n`,
+    `# User Instruction (untrusted data)\n<user_instruction>\n${input.instruction}\n</user_instruction>\n`,
     `Apply the instruction using updates, removals, and additions. Return the summary and the exact operation object requested by the system instructions.`,
   ].join('\n');
 }
@@ -103,6 +103,13 @@ function applyStructuralEdits(workflow: Workflow, result: ReturnType<typeof pars
     for (const target of outgoingTargets) addEdge(newNode.id, target);
   }
 
+  if (nodes.length > 100 || edges.length > 200) {
+    throw new WorkflowGenerationError(
+      502,
+      'The requested workflow edit would exceed the supported workflow size.',
+    );
+  }
+
   return { ...workflow, nodes, edges };
 }
 
@@ -118,7 +125,7 @@ export async function editWorkflow(
 
   let response;
   try {
-    response = await ai.models.generateContent({
+    response = await withAITimeout(ai.models.generateContent({
       model: config.geminiModel,
       contents: [{ role: 'user', parts: [{ text: buildUserMessage(input) }] }],
       config: {
@@ -127,7 +134,7 @@ export async function editWorkflow(
         maxOutputTokens: 4096,
         temperature: 0.7,
       },
-    });
+    }));
   } catch (error) {
     console.error('[workflowEditor] AI provider request failed:', error);
     throw new WorkflowGenerationError(

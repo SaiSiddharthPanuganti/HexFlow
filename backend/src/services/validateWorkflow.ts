@@ -5,6 +5,7 @@
  */
 
 import type { NodeType, Workflow } from '../types/workflow.types';
+import { createHash } from 'node:crypto';
 import { isValidNodeType } from '../types/workflow.types';
 import { WorkflowGenerationError } from '../utils/workflowErrors';
 
@@ -28,6 +29,10 @@ const REQUIRED_NODE_TYPES: NodeType[] = [
   'audio',
   'production',
 ];
+
+const MAX_TITLE_LENGTH = 300;
+const MAX_CONTENT_LENGTH = 10_000;
+const MAX_ADDITIONS = 20;
 
 /**
  * Extract JSON text from a raw AI response.
@@ -60,8 +65,8 @@ function tryParseJson(raw: string): unknown {
 }
 
 function logRawResponse(context: string, raw: string): void {
-  const snippet = raw.length > 600 ? `${raw.substring(0, 600)}…` : raw;
-  console.error(`[validateWorkflow] ${context} — raw AI response:\n${snippet}`);
+  const digest = createHash('sha256').update(raw).digest('hex').slice(0, 16);
+  console.error(`[validateWorkflow] ${context} — responseLength=${raw.length} responseHash=${digest}`);
 }
 
 /**
@@ -92,10 +97,10 @@ function validateAIGeneratedWorkflow(value: unknown): AIGeneratedWorkflow {
   const issues: string[] = [];
   const obj = value as Record<string, unknown>;
 
-  if (typeof obj.title !== 'string' || obj.title.trim().length === 0) {
+   if (typeof obj.title !== 'string' || obj.title.trim().length === 0 || obj.title.length > MAX_TITLE_LENGTH) {
     issues.push('"title" must be a non-empty string');
   }
-  if (typeof obj.description !== 'string' || obj.description.trim().length === 0) {
+   if (typeof obj.description !== 'string' || obj.description.trim().length === 0 || obj.description.length > MAX_CONTENT_LENGTH) {
     issues.push('"description" must be a non-empty string');
   }
 
@@ -111,10 +116,10 @@ function validateAIGeneratedWorkflow(value: unknown): AIGeneratedWorkflow {
         continue;
       }
       const nodeObj = node as Record<string, unknown>;
-      if (typeof nodeObj.title !== 'string' || nodeObj.title.trim().length === 0) {
+       if (typeof nodeObj.title !== 'string' || nodeObj.title.trim().length === 0 || nodeObj.title.length > MAX_TITLE_LENGTH) {
         issues.push(`node "${type}" must have a non-empty "title"`);
       }
-      if (typeof nodeObj.content !== 'string' || nodeObj.content.trim().length === 0) {
+       if (typeof nodeObj.content !== 'string' || nodeObj.content.trim().length === 0 || nodeObj.content.length > MAX_CONTENT_LENGTH) {
         issues.push(`node "${type}" must have non-empty "content"`);
       }
     }
@@ -170,10 +175,10 @@ export function parseRegeneratedNode(raw: string): AINodeContent {
   const obj = parsed as Record<string, unknown>;
   const issues: string[] = [];
 
-  if (typeof obj.title !== 'string' || obj.title.trim().length === 0) {
+   if (typeof obj.title !== 'string' || obj.title.trim().length === 0 || obj.title.length > MAX_TITLE_LENGTH) {
     issues.push('new node "title" must be a non-empty string');
   }
-  if (typeof obj.content !== 'string' || obj.content.trim().length === 0) {
+   if (typeof obj.content !== 'string' || obj.content.trim().length === 0 || obj.content.length > MAX_CONTENT_LENGTH) {
     issues.push('new node "content" must be a non-empty string');
   }
 
@@ -282,6 +287,9 @@ export function parseEditedWorkflow(
   if (!Array.isArray(additions)) {
     issues.push('"additions" must be an array of new workflow steps');
   } else {
+    if (additions.length > MAX_ADDITIONS) {
+      issues.push(`"additions" cannot contain more than ${MAX_ADDITIONS} steps`);
+    }
     for (const addition of additions) {
       if (!addition || typeof addition !== 'object' || Array.isArray(addition)) {
         issues.push('each addition must be an object');
@@ -291,10 +299,10 @@ export function parseEditedWorkflow(
       if (typeof node.type !== 'string' || !isValidNodeType(node.type)) {
         issues.push('each addition must use a valid node type');
       }
-      if (typeof node.title !== 'string' || node.title.trim().length === 0) {
+       if (typeof node.title !== 'string' || node.title.trim().length === 0 || node.title.length > MAX_TITLE_LENGTH) {
         issues.push('each addition must have a non-empty "title"');
       }
-      if (typeof node.content !== 'string' || node.content.trim().length === 0) {
+       if (typeof node.content !== 'string' || node.content.trim().length === 0 || node.content.length > MAX_CONTENT_LENGTH) {
         issues.push('each addition must have non-empty "content"');
       }
       if (typeof node.after !== 'string' || !validIdSet.has(node.after)) {

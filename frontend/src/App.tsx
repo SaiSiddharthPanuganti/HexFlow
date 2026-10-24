@@ -5,20 +5,37 @@ import BriefForm from './components/BriefForm'
 import WorkflowCanvas from './components/WorkflowCanvas/WorkflowCanvas'
 import InspectorPanel from './components/InspectorPanel/InspectorPanel'
 import WorkflowChat from './components/WorkflowChat/WorkflowChat'
-import { apiUrl } from './lib/api'
+import { authenticatedApiFetch } from './lib/api'
 import { getNodeLabel } from './components/WorkflowCanvas/nodeStyles'
-import { getCurrentSession, signIn, signOut, signUp, supabaseConfigured, cloudLoadLatest, cloudSaveWorkflow, type AuthSession } from './lib/supabase'
+import { getCurrentSession, requestPasswordReset, signIn, signOut, signUp, supabaseConfigured, cloudLoadLatest, cloudSaveWorkflow, updatePassword, type AuthSession } from './lib/supabase'
 import './App.css'
+
+function userStorageKey(userId: string, key: string): string {
+  return `hexflow:${userId}:${key}`
+}
 
 function App() {
   const [session, setSession] = useState<AuthSession | null>(null)
   const [authReady, setAuthReady] = useState(false)
-  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
+  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'reset'>('signin')
   const [authEmail, setAuthEmail] = useState('')
   const [authPassword, setAuthPassword] = useState('')
   const [authBusy, setAuthBusy] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
+  const [recoveryMode, setRecoveryMode] = useState(() => window.location.hash.includes('type=recovery'))
+  const [recoveryPassword, setRecoveryPassword] = useState('')
   const [cloudBusy, setCloudBusy] = useState(false)
+  const [inspectorDirty, setInspectorDirty] = useState(false)
+  const [lastSavedWorkflow, setLastSavedWorkflow] = useState<Workflow | null>(null)
+  const [lastSavedBrief, setLastSavedBrief] = useState('')
+  const [cloudRevision, setCloudRevision] = useState<number | null>(null)
+  const [workflow, setWorkflow] = useState<Workflow | null>(null)
+  const [brief, setBrief] = useState('')
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [past, setPast] = useState<Workflow[]>([])
+  const [future, setFuture] = useState<Workflow[]>([])
+  const [savedAt, setSavedAt] = useState<number | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   useEffect(() => {
     let active = true
@@ -31,15 +48,21 @@ function App() {
   useEffect(() => {
     if (!session) return
     let active = true
+    setSelectedNodeId(null)
+    setPast([])
+    setFuture([])
+    setInspectorDirty(false)
     setCloudBusy(true)
     cloudLoadLatest(session).then((saved) => {
       if (!active) return
       if (saved) {
         setWorkflow(saved.workflow); setBrief(saved.brief); setSavedAt(Date.parse(saved.updatedAt))
-        localStorage.setItem('hexflow-workflow', JSON.stringify(saved.workflow))
-        localStorage.setItem('hexflow-brief', saved.brief)
+        setLastSavedWorkflow(saved.workflow); setLastSavedBrief(saved.brief); setCloudRevision(saved.revision)
       } else {
-        setWorkflow(null); setBrief(''); setSavedAt(null)
+        const cached = localStorage.getItem(userStorageKey(session.user.id, 'workflow'))
+        const cachedBrief = localStorage.getItem(userStorageKey(session.user.id, 'brief')) ?? ''
+        setWorkflow(cached ? JSON.parse(cached) as Workflow : null)
+        setBrief(cachedBrief); setSavedAt(null); setLastSavedWorkflow(null); setLastSavedBrief(''); setCloudRevision(null)
       }
     }).catch((error: unknown) => {
       if (active) setNotice(error instanceof Error ? error.message : 'Could not load cloud workflow')
@@ -47,9 +70,40 @@ function App() {
     return () => { active = false }
   }, [session])
 
+  useEffect(() => {
+    if (!session || !workflow) return
+    const timeout = window.setTimeout(() => {
+      localStorage.setItem(userStorageKey(session.user.id, 'workflow'), JSON.stringify(workflow))
+      localStorage.setItem(userStorageKey(session.user.id, 'brief'), brief)
+    }, 250)
+    return () => window.clearTimeout(timeout)
+  }, [brief, session, workflow])
+
+  const hasUnsavedChanges = Boolean(
+    workflow && (
+      JSON.stringify(workflow) !== JSON.stringify(lastSavedWorkflow) ||
+      brief !== lastSavedBrief
+    ),
+  )
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [hasUnsavedChanges])
+
   const handleAuth = async (event: import('react').FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setAuthBusy(true); setAuthError(null)
     try {
+      if (authMode === 'reset') {
+        await requestPasswordReset(authEmail)
+        setAuthError('If that account exists, a password reset email has been sent.')
+        return
+      }
       const next = authMode === 'signin' ? await signIn(authEmail, authPassword) : await signUp(authEmail, authPassword)
       if (next) setSession(next)
       else setAuthError('Check your email to confirm your account, then sign in.')
@@ -57,24 +111,26 @@ function App() {
       setAuthError(error instanceof Error ? error.message : 'Authentication failed')
     } finally { setAuthBusy(false) }
   }
-  const [workflow, setWorkflow] = useState<Workflow | null>(() => {
-    try {
-      const saved = localStorage.getItem('hexflow-workflow')
-      return saved ? (JSON.parse(saved) as Workflow) : null
-    } catch {
-      return null
-    }
-  })
-  const [brief, setBrief] = useState(() => localStorage.getItem('hexflow-brief') ?? '')
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
-  const [past, setPast] = useState<Workflow[]>([])
-  const [future, setFuture] = useState<Workflow[]>([])
-  const [savedAt, setSavedAt] = useState<number | null>(() => {
-    const saved = localStorage.getItem('hexflow-saved-at')
-    return saved ? Number(saved) : null
-  })
-  const [notice, setNotice] = useState<string | null>(null)
 
+  const handlePasswordRecovery = async (event: import('react').FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!session) return
+    setAuthBusy(true)
+    setAuthError(null)
+    try {
+      await updatePassword(session, recoveryPassword)
+      await signOut()
+      setSession(null)
+      setRecoveryMode(false)
+      setRecoveryPassword('')
+      setAuthMode('signin')
+      setAuthError('Password updated. Sign in with your new password.')
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'Password update failed')
+    } finally {
+      setAuthBusy(false)
+    }
+  }
   useEffect(() => {
     if (!notice) return
     const timeout = window.setTimeout(() => setNotice(null), 3200)
@@ -98,6 +154,17 @@ function App() {
     setPast([])
     setFuture([])
     setSavedAt(null)
+    setLastSavedWorkflow(null)
+    setLastSavedBrief('')
+    setCloudRevision(null)
+  }
+
+  const handleNodeSelection = (nodeId: string | null) => {
+    if (inspectorDirty && nodeId !== selectedNodeId) {
+      setNotice('Save or cancel the current node edits before changing selection')
+      return
+    }
+    setSelectedNodeId(nodeId)
   }
 
   const handleNodeSave = (nodeId: string, title: string, content: string) => {
@@ -143,12 +210,15 @@ function App() {
     if (!workflow || !session) return
     setCloudBusy(true)
     try {
-      await cloudSaveWorkflow(session, workflow, brief)
+      const revision = await cloudSaveWorkflow(session, workflow, brief, cloudRevision)
       const timestamp = Date.now()
-      localStorage.setItem('hexflow-workflow', JSON.stringify(workflow))
-      localStorage.setItem('hexflow-brief', brief)
-      localStorage.setItem('hexflow-saved-at', String(timestamp))
+      localStorage.setItem(userStorageKey(session.user.id, 'workflow'), JSON.stringify(workflow))
+      localStorage.setItem(userStorageKey(session.user.id, 'brief'), brief)
+      localStorage.setItem(userStorageKey(session.user.id, 'saved-at'), String(timestamp))
       setSavedAt(timestamp)
+      setLastSavedWorkflow(workflow)
+      setLastSavedBrief(brief)
+      setCloudRevision(revision)
       setNotice('Workflow saved to your account')
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Cloud save failed')
@@ -199,7 +269,7 @@ function App() {
         workflow.edges.some((e) => e.source === nodeId && e.target === n.id),
       )
 
-      const response = await fetch(apiUrl('/api/workflow/regenerate'), {
+      const response = await authenticatedApiFetch('/api/workflow/regenerate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -234,7 +304,7 @@ function App() {
         throw new Error('No workflow is loaded')
       }
 
-      const response = await fetch(apiUrl('/api/workflow/edit'), {
+      const response = await authenticatedApiFetch('/api/workflow/edit', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -281,6 +351,19 @@ function App() {
 
   if (!supabaseConfigured) return <main className="auth-screen"><div className="auth-card"><h1>Connect Supabase</h1><p>Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in your environment and Vercel settings.</p></div></main>
 
+  if (recoveryMode && session) return (
+    <main className="auth-screen">
+      <form className="auth-card" onSubmit={handlePasswordRecovery}>
+        <h1>Choose a new password</h1>
+        <p>Use a strong password with at least 12 characters.</p>
+        <label htmlFor="recovery-password">New password</label>
+        <input id="recovery-password" type="password" minLength={12} autoComplete="new-password" required value={recoveryPassword} onChange={(event) => setRecoveryPassword(event.target.value)} />
+        {authError && <p className="auth-error" role="alert">{authError}</p>}
+        <button className="auth-submit" type="submit" disabled={authBusy}>{authBusy ? 'Updating…' : 'Update password'}</button>
+      </form>
+    </main>
+  )
+
   if (!session) return (
     <main className="auth-screen">
       <form className="auth-card" onSubmit={handleAuth}>
@@ -288,11 +371,12 @@ function App() {
         <p>Sign in to access your workflows across devices.</p>
         <label htmlFor="auth-email">Email</label>
         <input id="auth-email" type="email" autoComplete="email" required value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} />
-        <label htmlFor="auth-password">Password</label>
-        <input id="auth-password" type="password" minLength={8} autoComplete={authMode === 'signin' ? 'current-password' : 'new-password'} required value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} />
+        {authMode !== 'reset' && <><label htmlFor="auth-password">Password</label>
+        <input id="auth-password" type="password" minLength={12} autoComplete={authMode === 'signin' ? 'current-password' : 'new-password'} required value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} /></>}
         {authError && <p className="auth-error" role="alert">{authError}</p>}
-        <button className="auth-submit" type="submit" disabled={authBusy}>{authBusy ? 'Please wait…' : authMode === 'signin' ? 'Sign in' : 'Create account'}</button>
+        <button className="auth-submit" type="submit" disabled={authBusy}>{authBusy ? 'Please wait…' : authMode === 'signin' ? 'Sign in' : authMode === 'signup' ? 'Create account' : 'Send reset email'}</button>
         <button className="auth-switch" type="button" onClick={() => { setAuthMode(authMode === 'signin' ? 'signup' : 'signin'); setAuthError(null) }}>{authMode === 'signin' ? 'New to HexFlow? Create an account' : 'Already have an account? Sign in'}</button>
+        {authMode === 'signin' && <button className="auth-switch" type="button" onClick={() => { setAuthMode('reset'); setAuthError(null) }}>Forgot your password?</button>}
       </form>
     </main>
   )
@@ -354,7 +438,7 @@ function App() {
               </>
             )}
             <span className="save-status">{session.user.email}</span>
-            <button type="button" className="header-button" onClick={() => { void signOut().finally(() => { setSession(null); setWorkflow(null); setBrief('') }) }}>Sign out</button>
+            <button type="button" className="header-button" onClick={() => { void signOut().finally(() => { setSession(null); setWorkflow(null); setBrief(''); setLastSavedWorkflow(null); setLastSavedBrief(''); setCloudRevision(null); setInspectorDirty(false); setSelectedNodeId(null); setPast([]); setFuture([]) }) }}>Sign out</button>
             <span className="beta-badge">Beta</span>
           </div>
         </div>
@@ -390,7 +474,7 @@ function App() {
                 key={workflow.id}
                 workflow={workflow}
                 selectedNodeId={selectedNodeId}
-                onNodeSelect={setSelectedNodeId}
+                onNodeSelect={handleNodeSelection}
                 onNodePositionChange={handleNodePositionChange}
               />
               <InspectorPanel
@@ -399,6 +483,7 @@ function App() {
                 onClose={() => setSelectedNodeId(null)}
                 onSave={handleNodeSave}
                 onRegenerate={handleNodeRegenerate}
+                onDirtyChange={setInspectorDirty}
               />
             </div>
 
